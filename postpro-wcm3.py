@@ -1,9 +1,14 @@
+import logging  # Use logging for traceable runtime output
 import sys
 import numpy as np
 from netCDF4 import Dataset
 from util.Interpolator import Interp2D, depths
 from util.Distributor import Distrib3D
 from util.Wacomm import Wacomm
+
+# Configure a simple logger for the script
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger(__name__)
 
 
 def compute_sfconc(conc, depth_limit, mask2d, depths, fill_value=1e37):
@@ -44,52 +49,57 @@ def compute_sfconc(conc, depth_limit, mask2d, depths, fill_value=1e37):
 
 
 if __name__ == '__main__':
+    # Ensure the user supplied all required arguments
     if len(sys.argv) != 5:
-        print("Usage: python " + str(sys.argv[0]) + " initialization_date source_file history_dir destination_file")
+        logger.error("Usage: python %s initialization_date source_file history_dir destination_file", sys.argv[0])
         sys.exit(-1)
 
-    iDate = sys.argv[1]
-    src = sys.argv[2]
-    history_dir = sys.argv[3]
-    dst = sys.argv[4]
+    # Parse the CLI arguments for clarity
+    iDate = sys.argv[1]  # Initialization date string
+    src = sys.argv[2]  # Input NetCDF path
+    history_dir = sys.argv[3]  # Historical folder (unused placeholder)
+    dst = sys.argv[4]  # Output archive path
 
-    print("iDate:" + iDate + " src: " + src + " history: " + history_dir + " dst: " + dst)
+    # Log the inputs so users can trace what the script is processing
+    logger.info("iDate:%s src:%s history:%s dst:%s", iDate, src, history_dir, dst)
 
-    # Open the NetCDF file
+    # Open the NetCDF file containing wave chemistry model data
     ncsrcfile = Dataset(src)
 
-    # Read variables
-    time = ncsrcfile.variables["ocean_time"][:]
-    Xlat = ncsrcfile["lat_rho"][:]
-    Xlon = ncsrcfile["lon_rho"][:]
-    s_rho = ncsrcfile["s_rho"][:]
-    mask_rho = ncsrcfile["mask_rho"][:]
-    H = ncsrcfile["h"][:]
+    # Read time and grid variables from the source dataset
+    time = ncsrcfile.variables["ocean_time"][:]  # Time steps
+    Xlat = ncsrcfile["lat_rho"][:]  # Latitude grid on Rho points
+    Xlon = ncsrcfile["lon_rho"][:]  # Longitude grid on Rho points
+    s_rho = ncsrcfile["s_rho"][:]  # Sigma levels for the vertical coordinate
+    mask_rho = ncsrcfile["mask_rho"][:]  # Land/sea mask
+    H = ncsrcfile["h"][:]  # Bathymetry
 
+    # Build destination longitude and latitude arrays with even spacing
     dstLon = np.linspace(Xlon.min(), Xlon.max(), len(Xlon[0]))
     dstLat = np.linspace(Xlat.min(), Xlat.max(), len(Xlat))
 
-    # Instantiate a Wacomm archive file
+    # Instantiate a Wacomm archive writer for the destination grid
     wacomm = Wacomm(dst, time, depths, dstLon, dstLat)
 
-    # Create a 2D biliniear interpolator on Rho points
+    # Create 2D bilinear interpolator for surface fields
     interpolator2DRho = Interp2D(Xlon, Xlat, dstLon, dstLat)
 
-    # Create a 3D distributor on Rho points
+    # Create a 3D distributor that handles vertical stretching and land masking
     distributor3DRho = Distrib3D(Xlon, Xlat, dstLon, dstLat, s_rho, mask_rho, H)
 
-    print("conc...")
+    # Read and distribute the 3D concentration field onto the destination grid
+    logger.info("Distributing concentration field")
     conc = ncsrcfile.variables["conc"][:]
     conc = distributor3DRho.distrib(conc)
-    print("...conc")
 
-    print("sfconc...")
+    # Compute surface and depth-integrated concentration metrics
+    logger.info("Calculating surface and integrated concentration totals")
     sfconc = conc[0, 0]
     sfconc_10m = compute_sfconc(conc[0], 10.0, distributor3DRho.mask, depths)
     sfconc_30m = compute_sfconc(conc[0], 30.0, distributor3DRho.mask, depths)
-    print("...sfconc")
 
-    print("Saving archive file...")
+    # Persist outputs to the archive file
+    logger.info("Saving processed concentration fields")
     wacomm.mask = distributor3DRho.mask
     wacomm.conc = conc
     wacomm.sfconc = sfconc
@@ -97,6 +107,6 @@ if __name__ == '__main__':
     wacomm.sfconc_30m = sfconc_30m
     wacomm.write()
 
-    # Close the NetCDF file
+    # Close the open dataset handles to flush to disk
     ncsrcfile.close()
     wacomm.close()
