@@ -3,7 +3,7 @@
 Post-processing utilities for coastal and atmospheric model outputs produced at [Meteo@Uniparthenope](https://meteo.uniparthenope.it). The scripts read NetCDF outputs from WRF, ROMS, WaveWatch III, and WACOMM, interpolate them onto user-friendly grids, and export compact archive files for downstream visualization or delivery.
 
 ## Requirements
-- Python 3.10+
+- Python 3.11 (refer to [wrf-python](https://wrf-python.readthedocs.io) for compatibility limitations.
 - NetCDF4-compatible build environment
 - Dependencies listed in `requirements.txt`
 
