@@ -1,7 +1,8 @@
 import sys
 import numpy as np
 from netCDF4 import Dataset
-from util.Interpolator import Interp2D, Interp3D, depths
+from util.Interpolator import Interp2D, depths
+from util.Distributor import Distrib3D
 from util.Wacomm import Wacomm
 
 
@@ -74,22 +75,22 @@ if __name__ == '__main__':
     # Create a 2D biliniear interpolator on Rho points
     interpolator2DRho = Interp2D(Xlon, Xlat, dstLon, dstLat)
 
-    # Create a 3D biliniear interpolator on Rho points
-    interpolator3DRho = Interp3D(Xlon, Xlat, dstLon, dstLat, s_rho, mask_rho, H)
+    # Create a 3D distributor on Rho points
+    distributor3DRho = Distrib3D(Xlon, Xlat, dstLon, dstLat, s_rho, mask_rho, H)
 
     print("conc...")
     conc = ncsrcfile.variables["conc"][:]
-    conc = interpolator3DRho.interp(conc)
+    conc = distributor3DRho.distrib(conc)
     print("...conc")
 
     print("sfconc...")
     sfconc = conc[0, 0]
-    sfconc_10m = compute_sfconc(conc[0], 10.0, interpolator3DRho.mask, depths)
-    sfconc_30m = compute_sfconc(conc[0], 30.0, interpolator3DRho.mask, depths)
+    sfconc_10m = compute_sfconc(conc[0], 10.0, distributor3DRho.mask, depths)
+    sfconc_30m = compute_sfconc(conc[0], 30.0, distributor3DRho.mask, depths)
     print("...sfconc")
 
     print("Saving archive file...")
-    wacomm.mask = interpolator3DRho.mask
+    wacomm.mask = distributor3DRho.mask
     wacomm.conc = conc
     wacomm.sfconc = sfconc
     wacomm.sfconc_10m = sfconc_10m
