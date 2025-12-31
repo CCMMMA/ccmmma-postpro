@@ -5,7 +5,7 @@
 #
 # Same public API (same methods + signatures) as Interp3D in util/Interpolator.py:
 #   - __init__(srcLons, srcLats, dstLons, dstLats, s_rho, mask, H)
-#   - interp(invar3d, fill_value=1.e+37, invalid_value=1.e+37)
+#   - distrib(invar3d, fill_value=1.e+37, invalid_value=1.e+37)
 #   - bottomValues(invar3d, invalid_value=1e37)
 #   - surfaceValues(invar3d, factor=1.0, invalid_value=1e37)
 #
@@ -267,7 +267,7 @@ class Distrib3D(Interp2D):
         self.mask = super().interp(mask, fill_value=0, invalid_value=np.nan)
         self.mask_indices = np.where(self.mask == 1)
 
-    def interp(self, invar3d, fill_value=1.0e37, invalid_value=1.0e37):
+    def distrib(self, invar3d, fill_value=1.0e37, invalid_value=1.0e37):
         """
         invar3d: (time, Ks, src_eta, src_xi) particle counts on source grid
         returns: (time, Kd, len(dstLats), len(dstLons)) particle counts on depth bins,
